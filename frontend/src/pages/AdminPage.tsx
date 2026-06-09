@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Copy, Trash2, RefreshCw, ShieldCheck, Users, Camera, Crown, Search, ChevronDown, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Plus, Copy, Trash2, RefreshCw, ShieldCheck, Users, Camera, Crown, Search, ChevronDown, CheckCircle, XCircle, Clock, Image, CalendarDays } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -94,6 +94,9 @@ export default function AdminPage() {
   const [requests, setRequests] = useState<PhotographerRequest[]>([])
   const [requestsLoading, setRequestsLoading] = useState(false)
 
+  // platform stats from Express API
+  const [platformStats, setPlatformStats] = useState<{ totalEvents: number; totalMedia: number; totalClubs: number; totalUsers: number } | null>(null)
+
   // users state
   const [users, setUsers]           = useState<Profile[]>([])
   const [usersLoading, setUsersLoading] = useState(false)
@@ -106,6 +109,14 @@ export default function AdminPage() {
       navigate('/dashboard')
     }
   }, [profile, navigate])
+
+  useEffect(() => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+    fetch(`${apiUrl}/api/stats`)
+      .then(r => r.json())
+      .then(data => setPlatformStats(data))
+      .catch(() => {})
+  }, [])
 
   const fetchCodes = useCallback(async () => {
     setCodesLoading(true)
@@ -293,6 +304,28 @@ export default function AdminPage() {
           <p className="text-gray-500 text-sm">Manage access codes and user roles</p>
         </div>
       </div>
+
+      {/* Platform stats from Express API */}
+      {platformStats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+          {[
+            { label: 'Total Events', value: platformStats.totalEvents, icon: CalendarDays },
+            { label: 'Total Media',  value: platformStats.totalMedia,  icon: Image },
+            { label: 'Total Clubs',  value: platformStats.totalClubs,  icon: Users },
+            { label: 'Total Users',  value: platformStats.totalUsers,  icon: Crown },
+          ].map(({ label, value, icon: Icon }) => (
+            <div key={label} className="card flex items-center gap-3 py-3">
+              <div className="w-9 h-9 rounded-xl bg-college-fuchsia/10 flex items-center justify-center shrink-0">
+                <Icon size={16} className="text-college-fuchsia" />
+              </div>
+              <div>
+                <p className="text-xl font-black text-college-black">{value}</p>
+                <p className="text-xs text-gray-400 font-medium">{label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-8 flex-wrap">

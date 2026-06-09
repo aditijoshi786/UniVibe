@@ -2,10 +2,9 @@
 // The stored file is never modified — watermark is applied on download only.
 
 const FONT_FAMILY  = "'Segoe UI', Arial, sans-serif"
-const BAR_GRAD_L   = '#0A0A0C'
-const BAR_GRAD_R   = '#FF007F'
-const ACCENT_COLOR = '#FF4500'
-const GOLD_COLOR   = '#00CED1'
+const BAR_GRAD_L = '#0A0A0C'
+const BAR_GRAD_R = '#FF007F'
+const GOLD_COLOR = '#00CED1'
 const TEXT_COLOR   = '#ffffff'
 const MUTED_COLOR  = 'rgba(255,255,255,0.62)'
 

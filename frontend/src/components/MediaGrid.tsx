@@ -34,9 +34,8 @@ export default function MediaGrid({ media, view, canManage, initialLightboxIndex
   const [likedIds, setLikedIds]     = useState<Set<string>>(new Set())
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({})
   const [visibleMedia, setVisibleMedia] = useState<MediaItem[]>(media)
-  const didAutoOpen    = useRef(false)
-  const skipRefreshIds = useRef(new Set<string>())
-  const sentinelRef    = useRef<HTMLDivElement>(null)
+  const didAutoOpen = useRef(false)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setVisibleMedia(media) }, [media])
 
