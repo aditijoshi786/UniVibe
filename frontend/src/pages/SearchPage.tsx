@@ -52,7 +52,9 @@ export default function SearchPage() {
     if (profile?.role === 'viewer') photoQuery = photoQuery.eq('is_public', true)
 
     if (query.trim()) {
-      photoQuery = photoQuery.ilike('title', `%${query.trim()}%`)
+      const q = query.trim()
+      // Search by photo title OR by exact tag match (tags is a text[] column)
+      photoQuery = photoQuery.or(`title.ilike.%${q}%,tags.cs.{${q}}`)
     }
     if (tagFilter.length > 0) {
       photoQuery = photoQuery.overlaps('tags', tagFilter)
