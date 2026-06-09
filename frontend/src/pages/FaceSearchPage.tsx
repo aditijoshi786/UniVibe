@@ -13,8 +13,10 @@ type MatchedPhoto = {
   distance: number
 }
 
-// Models loaded from CDN matching the exact face-api.js package version (0.22.2)
-const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'
+// Model weights are NOT published to the face-api.js npm package, so the
+// `npm/face-api.js@0.22.2/weights` path 404s. Load them from the official
+// model host instead, which serves all three nets this page needs.
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models'
 const MATCH_THRESHOLD = 0.52   // euclidean distance; lower = stricter match
 
 let modelsLoaded = false
