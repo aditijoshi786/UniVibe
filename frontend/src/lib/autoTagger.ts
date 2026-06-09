@@ -166,7 +166,7 @@ function buildCaption(
   clubName:  string,
 ): string {
   const topTags = topLabels
-    .filter(r => r.score > 0.07)
+    .filter(r => r.score > 0.03)
     .slice(0, 3)
     .map(r => LABEL_TO_TAG[r.label])
     .filter(Boolean) as string[]
@@ -210,9 +210,12 @@ export async function autoTagImage(
 
     console.log('[AutoTagger] CLIP scores:', resultArr.slice(0, 6).map(r => `${r.label}: ${(r.score * 100).toFixed(1)}%`))
 
+    // CLIP softmax distributes probability across all 58 candidates, so
+    // individual scores are naturally low (~1-10%). Use the top-N approach
+    // rather than a high fixed threshold to avoid cutting off correct tags.
     const tags = new Set<string>()
-    for (const r of resultArr) {
-      if (r.score > 0.08) {
+    for (const r of resultArr.slice(0, 10)) {   // consider only top-10 results
+      if (r.score > 0.03) {                      // min bar: must beat ~random
         const tag = LABEL_TO_TAG[r.label]
         if (tag) tags.add(tag)
       }

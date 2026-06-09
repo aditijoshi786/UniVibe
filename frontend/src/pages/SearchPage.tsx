@@ -19,7 +19,26 @@ type EventResult = {
   clubs: { name: string } | null
 }
 
-const COMMON_TAGS = ['outdoors', 'sports', 'crowd', 'people', 'nature', 'food', 'travel', 'music', 'celebration', 'stage', 'technology', 'architecture']
+// These must match the actual tag values produced by autoTagger.ts → LABEL_TO_TAG
+const COMMON_TAGS = [
+  'nature', 'sunset', 'mountains', 'beach',
+  'sports', 'dance', 'music', 'cultural-fest',
+  'group-photo', 'celebration', 'award-ceremony',
+  'hackathon', 'workshop', 'seminar', 'technology',
+  'trip', 'trekking', 'food', 'campus',
+]
+
+// Full vocabulary of every tag the auto-tagger can produce — used for partial
+// matching so typing "natur" or "group" still finds the right photos.
+const ALL_KNOWN_TAGS = [
+  'workshop', 'hackathon', 'seminar', 'competition', 'robotics', 'electronics',
+  'technology', 'presentation', 'exhibition', 'cultural-fest', 'dance', 'music',
+  'theatre', 'art', 'fashion', 'sports', 'award-ceremony', 'club-activity',
+  'volunteering', 'photoshoot', 'debate', 'quiz', 'campus', 'lecture',
+  'auditorium', 'group-photo', 'celebration', 'graduation', 'farewell',
+  'trip', 'trekking', 'beach', 'speech', 'food', 'outing', 'mountains',
+  'sunset', 'nature',
+]
 
 export default function SearchPage() {
   const { profile } = useAuth()
@@ -41,28 +60,49 @@ export default function SearchPage() {
     setLoading(true)
     setSearched(true)
 
-    // --- Photos search ---
+    const q = query.trim()
+
+    // ── Step 1: resolve club name → event IDs so one search bar covers everything ──
+    // If the query matches a club name, we want to surface all photos/events from it.
+    let clubMatchedEventIds: string[] = []
+    if (q) {
+      const { data: clubRows } = await supabase
+        .from('clubs').select('id').ilike('name', `%${q}%`)
+      if (clubRows?.length) {
+        const { data: evRows } = await supabase
+          .from('events').select('id').in('club_id', clubRows.map(c => c.id))
+        clubMatchedEventIds = evRows?.map(e => e.id) ?? []
+      }
+    }
+
+    // ── Step 2: Photos ───────────────────────────────────────────────────────────
     let photoQuery = supabase
       .from('media')
       .select('id, url, thumbnail_url, title, tags, created_at, event_id, album_id, profiles(full_name), events(title, clubs(name))')
       .eq('type', 'photo')
       .order('created_at', { ascending: false })
-      .limit(60)
+      .limit(80)
 
     if (profile?.role === 'viewer') photoQuery = photoQuery.eq('is_public', true)
 
-    if (query.trim()) {
-      const q = query.trim()
-      // Search by photo title OR by exact tag match (tags is a text[] column)
-      photoQuery = photoQuery.or(`title.ilike.%${q}%,tags.cs.{${q}}`)
+    if (q) {
+      // Match photo title (partial) | exact tag in array | partial tag match | club-name-matched event
+      const orParts = [`title.ilike.%${q}%`, `tags.cs.{${q}}`]
+
+      // Partial tag matching: find every known tag whose name contains the query
+      // (or vice-versa), then use overlaps so "natur" finds "nature", "group" finds "group-photo" etc.
+      const lq = q.toLowerCase()
+      const partialTagMatches = ALL_KNOWN_TAGS.filter(t => t.includes(lq) || lq.includes(t))
+      if (partialTagMatches.length) orParts.push(`tags.ov.{${partialTagMatches.join(',')}}`)
+
+      if (clubMatchedEventIds.length) orParts.push(`event_id.in.(${clubMatchedEventIds.join(',')})`)
+      photoQuery = photoQuery.or(orParts.join(','))
     }
-    if (tagFilter.length > 0) {
-      photoQuery = photoQuery.overlaps('tags', tagFilter)
-    }
+    if (tagFilter.length > 0) photoQuery = photoQuery.overlaps('tags', tagFilter)
     if (dateFrom) photoQuery = photoQuery.gte('created_at', dateFrom)
     if (dateTo)   photoQuery = photoQuery.lte('created_at', dateTo + 'T23:59:59')
 
-    // --- Events search ---
+    // ── Step 3: Events ───────────────────────────────────────────────────────────
     let eventQuery = supabase
       .from('events')
       .select('id, title, date, category, cover_image, is_public, clubs(name)')
@@ -70,7 +110,13 @@ export default function SearchPage() {
       .limit(30)
 
     if (profile?.role === 'viewer') eventQuery = eventQuery.eq('is_public', true)
-    if (query.trim()) eventQuery = eventQuery.ilike('title', `%${query.trim()}%`)
+
+    if (q) {
+      // Match event title (partial) | is one of the club-name-matched events
+      const orParts = [`title.ilike.%${q}%`]
+      if (clubMatchedEventIds.length) orParts.push(`id.in.(${clubMatchedEventIds.join(',')})`)
+      eventQuery = eventQuery.or(orParts.join(','))
+    }
     if (dateFrom) eventQuery = eventQuery.gte('date', dateFrom)
     if (dateTo)   eventQuery = eventQuery.lte('date', dateTo)
 
@@ -78,12 +124,24 @@ export default function SearchPage() {
 
     let filteredPhotos = (photoRes.data ?? []) as unknown as MediaResult[]
 
-    // Filter by uploader name client-side (can't do ilike on joined column server-side easily)
+    // Uploader filter — client-side only (PostgREST can't ilike on a joined column)
     if (uploaderName.trim()) {
-      const lc = uploaderName.toLowerCase()
+      const lc = uploaderName.trim().toLowerCase()
       filteredPhotos = filteredPhotos.filter(p =>
         p.profiles?.full_name?.toLowerCase().includes(lc)
       )
+    }
+
+    // Also client-side: include photos whose event title or club name matches the query
+    // (catches cases where the server-side join column wasn't filterable directly)
+    if (q) {
+      const lc = q.toLowerCase()
+      const extras = ((photoRes.data ?? []) as unknown as MediaResult[]).filter(p =>
+        p.events?.title?.toLowerCase().includes(lc) ||
+        p.events?.clubs?.name?.toLowerCase().includes(lc)
+      )
+      const ids = new Set(filteredPhotos.map(p => p.id))
+      for (const p of extras) if (!ids.has(p.id)) filteredPhotos.push(p)
     }
 
     setPhotos(filteredPhotos)
@@ -111,7 +169,7 @@ export default function SearchPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-display font-bold text-college-navy mb-1">Advanced Search</h1>
-        <p className="text-gray-400 text-sm">Search photos by title, tags, date, or uploader — or find events by name.</p>
+        <p className="text-gray-400 text-sm">Search by photo title, tag, event name, or club name — use filters for date and uploader.</p>
       </div>
 
       {/* Search bar */}
@@ -123,7 +181,7 @@ export default function SearchPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search by photo title or event name…"
+            placeholder="Search by photo title, tag, event name, or club name…"
             className="input pl-9 w-full"
           />
           {query && (
@@ -273,7 +331,7 @@ export default function SearchPage() {
           </div>
           <h3 className="font-semibold text-college-navy">Search the platform</h3>
           <p className="text-gray-400 text-sm mt-2 max-w-sm mx-auto">
-            Find photos by title, auto-generated AI tags, upload date, or uploader name. Search events by name or date range.
+            Type a photo title, tag (e.g. "nature"), event name, or club name. Use filters to narrow by date or uploader.
           </p>
           <div className="flex flex-wrap gap-2 justify-center mt-4">
             {COMMON_TAGS.slice(0, 6).map(tag => (
