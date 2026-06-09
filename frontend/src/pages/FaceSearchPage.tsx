@@ -13,8 +13,8 @@ type MatchedPhoto = {
   distance: number
 }
 
-// Models are served from /public/models — no CDN dependency, no rate limits
-const MODEL_URL = '/models'
+// Models loaded from CDN matching the exact face-api.js package version (0.22.2)
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'
 const MATCH_THRESHOLD = 0.52   // euclidean distance; lower = stricter match
 
 let modelsLoaded = false
@@ -23,7 +23,7 @@ async function loadModels() {
   if (modelsLoaded) return
   await Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
     faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
   ])
   modelsLoaded = true
@@ -40,7 +40,7 @@ async function getDescriptor(imageEl: HTMLImageElement): Promise<Float32Array | 
   const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 })
   const detection = await faceapi
     .detectSingleFace(imageEl, opts)
-    .withFaceLandmarks()
+    .withFaceLandmarks(true)
     .withFaceDescriptor()
   return detection?.descriptor ?? null
 }
@@ -138,7 +138,7 @@ export default function FaceSearchPage() {
             const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 })
             const detection = await faceapi
               .detectSingleFace(img, opts)
-              .withFaceLandmarks()
+              .withFaceLandmarks(true)
               .withFaceDescriptor()
 
             if (detection) {
