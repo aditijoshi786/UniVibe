@@ -7,6 +7,19 @@
 
 ---
 
+## Demo Credentials
+
+All accounts use the password: **`cutebaby`**
+
+| Role | Email |
+|---|---|
+| Admin | aditi_j@ee.iitr.ac.in |
+| Club Member | aditijoshi554@gmail.com |
+| Photographer | chaturebhole26@gmail.com |
+| Viewer | jaditi240@gmail.com |
+
+---
+
 ## Overview
 
 UniVibe is a college event and media management platform built for campus clubs. It allows clubs to create events, upload photos and videos, and lets students find their own photos using AI-powered face recognition — all without any paid AI API calls, since all processing runs directly in the browser.
