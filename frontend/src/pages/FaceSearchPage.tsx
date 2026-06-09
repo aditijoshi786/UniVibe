@@ -21,10 +21,9 @@ let modelsLoaded = false
 
 async function loadModels() {
   if (modelsLoaded) return
-  // Use tiny models — ~2 MB total, much faster than full SSD MobileNet
   await Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
     faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
   ])
   modelsLoaded = true
@@ -41,7 +40,7 @@ async function getDescriptor(imageEl: HTMLImageElement): Promise<Float32Array | 
   const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 })
   const detection = await faceapi
     .detectSingleFace(imageEl, opts)
-    .withFaceLandmarks(true)   // true = use tiny landmark model
+    .withFaceLandmarks()
     .withFaceDescriptor()
   return detection?.descriptor ?? null
 }
@@ -139,7 +138,7 @@ export default function FaceSearchPage() {
             const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 })
             const detection = await faceapi
               .detectSingleFace(img, opts)
-              .withFaceLandmarks(true)
+              .withFaceLandmarks()
               .withFaceDescriptor()
 
             if (detection) {

@@ -29,15 +29,16 @@ export default function EventsPage() {
   const { profile } = useAuth()
   const { clubs } = useAllClubs()
 
-  const [events, setEvents]           = useState<EventRow[]>([])
-  const [userClubIds, setUserClubIds] = useState<string[]>([])
-  const [loading, setLoading]         = useState(true)
-  const [showModal, setShowModal]     = useState(false)
-  const [search, setSearch]           = useState('')
-  const [sort, setSort]               = useState<SortKey>('date_desc')
-  const [categoryFilter, setCategory] = useState('All')
-  const [clubFilter, setClubFilter]   = useState('all')
-  const [showFilters, setShowFilters] = useState(false)
+  const [events, setEvents]                   = useState<EventRow[]>([])
+  const [userClubIds, setUserClubIds]         = useState<string[]>([])
+  const [loading, setLoading]                 = useState(true)
+  const [showModal, setShowModal]             = useState(false)
+  const [search, setSearch]                   = useState('')
+  const [sort, setSort]                       = useState<SortKey>('date_desc')
+  const [categoryFilter, setCategory]         = useState('All')
+  const [clubFilter, setClubFilter]           = useState('all')
+  const [showFilters, setShowFilters]         = useState(false)
+  const [mediaMatchIds, setMediaMatchIds]     = useState<Set<string>>(new Set())
 
   const canCreate = profile?.role === 'admin' || profile?.role === 'club_member'
 
@@ -93,10 +94,29 @@ export default function EventsPage() {
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
+  // When search changes, look for events containing matching photo names OR tags
+  useEffect(() => {
+    if (!search.trim()) { setMediaMatchIds(new Set()); return }
+    const q = search.trim().toLowerCase()
+    Promise.all([
+      // match by photo title
+      supabase.from('media').select('event_id').ilike('title', `%${q}%`),
+      // match by tag (tags is a text[] column — cs means "contains")
+      supabase.from('media').select('event_id').contains('tags', [q]),
+    ]).then(([byTitle, byTag]) => {
+      const ids = [
+        ...((byTitle.data ?? []).map((m: any) => m.event_id)),
+        ...((byTag.data  ?? []).map((m: any) => m.event_id)),
+      ].filter(Boolean)
+      setMediaMatchIds(new Set(ids))
+    })
+  }, [search])
+
   const filtered = events.filter(e =>
     e.title.toLowerCase().includes(search.toLowerCase()) ||
     e.clubs?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    e.category.toLowerCase().includes(search.toLowerCase())
+    e.category.toLowerCase().includes(search.toLowerCase()) ||
+    mediaMatchIds.has(e.id)
   )
 
   const activeFilters = (categoryFilter !== 'All' ? 1 : 0) + (clubFilter !== 'all' ? 1 : 0)
