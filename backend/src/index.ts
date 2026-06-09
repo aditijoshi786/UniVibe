@@ -13,7 +13,7 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY!
 )
 
-app.use(cors({ origin: '*', credentials: true }))
+app.use(cors({ origin: '*' }))
 app.use(express.json())
 
 // Health check
