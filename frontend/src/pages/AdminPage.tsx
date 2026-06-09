@@ -96,6 +96,7 @@ export default function AdminPage() {
 
   // platform stats from Express API
   const [platformStats, setPlatformStats] = useState<{ totalEvents: number; totalMedia: number; totalClubs: number; totalUsers: number } | null>(null)
+  const [statsLoading, setStatsLoading]   = useState(true)
 
   // users state
   const [users, setUsers]           = useState<Profile[]>([])
@@ -114,8 +115,8 @@ export default function AdminPage() {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000'
     fetch(`${apiUrl}/api/stats`)
       .then(r => r.json())
-      .then(data => setPlatformStats(data))
-      .catch(() => {})
+      .then(data => { setPlatformStats(data); setStatsLoading(false) })
+      .catch(err => { console.error('[Stats] fetch failed:', err); setStatsLoading(false) })
   }, [])
 
   const fetchCodes = useCallback(async () => {
@@ -306,26 +307,37 @@ export default function AdminPage() {
       </div>
 
       {/* Platform stats from Express API */}
-      {platformStats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-          {[
-            { label: 'Total Events', value: platformStats.totalEvents, icon: CalendarDays },
-            { label: 'Total Media',  value: platformStats.totalMedia,  icon: Image },
-            { label: 'Total Clubs',  value: platformStats.totalClubs,  icon: Users },
-            { label: 'Total Users',  value: platformStats.totalUsers,  icon: Crown },
-          ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="card flex items-center gap-3 py-3">
-              <div className="w-9 h-9 rounded-xl bg-college-fuchsia/10 flex items-center justify-center shrink-0">
-                <Icon size={16} className="text-college-fuchsia" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        {statsLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="card flex items-center gap-3 py-3 animate-pulse">
+                <div className="w-9 h-9 rounded-xl bg-gray-100 shrink-0" />
+                <div className="space-y-1.5">
+                  <div className="h-5 w-8 bg-gray-100 rounded" />
+                  <div className="h-3 w-20 bg-gray-100 rounded" />
+                </div>
               </div>
-              <div>
-                <p className="text-xl font-black text-college-black">{value}</p>
-                <p className="text-xs text-gray-400 font-medium">{label}</p>
+            ))
+          : platformStats
+          ? [
+              { label: 'Total Events', value: platformStats.totalEvents, icon: CalendarDays },
+              { label: 'Total Media',  value: platformStats.totalMedia,  icon: Image },
+              { label: 'Total Clubs',  value: platformStats.totalClubs,  icon: Users },
+              { label: 'Total Users',  value: platformStats.totalUsers,  icon: Crown },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="card flex items-center gap-3 py-3">
+                <div className="w-9 h-9 rounded-xl bg-college-fuchsia/10 flex items-center justify-center shrink-0">
+                  <Icon size={16} className="text-college-fuchsia" />
+                </div>
+                <div>
+                  <p className="text-xl font-black text-college-black">{value}</p>
+                  <p className="text-xs text-gray-400 font-medium">{label}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))
+          : null
+        }
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-8 flex-wrap">
