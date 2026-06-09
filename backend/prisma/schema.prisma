@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  admin
+  photographer
+  club_member
+  viewer
+}
+
+enum MediaType {
+  photo
+  video
+}
+
+model Profile {
+  id         String    @id @default(uuid())
+  email      String    @unique
+  full_name  String
+  avatar_url String?
+  role       UserRole  @default(viewer)
+  club_name  String?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  events        Event[]
+  albums        Album[]
+  media         Media[]
+  likes         Like[]
+  comments      Comment[]
+  favourites    Favourite[]
+  notifications Notification[]
+  tags_given    UserTag[]     @relation("tagger")
+  tags_received UserTag[]     @relation("tagged")
+
+  @@map("profiles")
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  category    String   @default("general")
+  date        DateTime
+  cover_image String?
+  is_public   Boolean  @default(true)
+  created_by  String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  creator Profile @relation(fields: [created_by], references: [id], onDelete: Cascade)
+  albums  Album[]
+  media   Media[]
+
+  @@map("events")
+}
+
+model Album {
+  id          String   @id @default(uuid())
+  event_id    String
+  title       String
+  description String?
+  is_public   Boolean  @default(true)
+  created_by  String
+  created_at  DateTime @default(now())
+
+  event   Event   @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  creator Profile @relation(fields: [created_by], references: [id], onDelete: Cascade)
+  media   Media[]
+
+  @@map("albums")
+}
+
+model Media {
+  id            String    @id @default(uuid())
+  album_id      String?
+  event_id      String
+  url           String
+  thumbnail_url String?
+  type          MediaType @default(photo)
+  title         String?
+  tags          String[]  @default([])
+  uploaded_by   String
+  is_public     Boolean   @default(true)
+  like_count    Int       @default(0)
+  created_at    DateTime  @default(now())
+
+  event    Event     @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  album    Album?    @relation(fields: [album_id], references: [id], onDelete: SetNull)
+  uploader Profile   @relation(fields: [uploaded_by], references: [id], onDelete: Cascade)
+  likes    Like[]
+  comments Comment[]
+  favourites Favourite[]
+  user_tags  UserTag[]
+
+  @@map("media")
+}
+
+model Like {
+  id         String   @id @default(uuid())
+  media_id   String
+  user_id    String
+  created_at DateTime @default(now())
+
+  media Media   @relation(fields: [media_id], references: [id], onDelete: Cascade)
+  user  Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([media_id, user_id])
+  @@map("likes")
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  media_id   String
+  user_id    String
+  body       String
+  created_at DateTime @default(now())
+
+  media Media   @relation(fields: [media_id], references: [id], onDelete: Cascade)
+  user  Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model Favourite {
+  id         String   @id @default(uuid())
+  media_id   String
+  user_id    String
+  created_at DateTime @default(now())
+
+  media Media   @relation(fields: [media_id], references: [id], onDelete: Cascade)
+  user  Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([media_id, user_id])
+  @@map("favourites")
+}
+
+model UserTag {
+  id         String   @id @default(uuid())
+  media_id   String
+  tagger_id  String
+  tagged_id  String
+  created_at DateTime @default(now())
+
+  media  Media   @relation(fields: [media_id], references: [id], onDelete: Cascade)
+  tagger Profile @relation("tagger", fields: [tagger_id], references: [id], onDelete: Cascade)
+  tagged Profile @relation("tagged", fields: [tagged_id], references: [id], onDelete: Cascade)
+
+  @@map("user_tags")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  user_id    String
+  type       String
+  message    String
+  is_read    Boolean  @default(false)
+  link       String?
+  created_at DateTime @default(now())
+
+  user Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
